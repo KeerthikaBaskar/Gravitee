@@ -1,0 +1,391 @@
+version: 2.1
+
+orbs:
+  docker: circleci/docker@2.8.2
+  keeper: gravitee-io/keeper@0.6.2
+  aquasec: gravitee-io/aquasec@1.0.4
+
+commands:
+  prepare-docker-context:
+    steps:
+      - setup_remote_docker
+      - keeper/env-export:
+          secret-url: keeper://cooU9UoXIk8Kj0hsP2rkBw/field/login
+          var-name: DOCKER_LOGIN
+      - keeper/env-export:
+          secret-url: keeper://cooU9UoXIk8Kj0hsP2rkBw/field/password
+          var-name: DOCKER_PASSWORD
+      - docker/check
+
+jobs:
+  build-and-push-java-legacy:
+    executor: docker/docker
+    parameters:
+      alpine_version:
+        type: string
+        default: ""
+    steps:
+      - checkout
+      - prepare-docker-context
+      - when :
+          condition: << parameters.alpine_version >>
+          steps:
+            - run:
+                name: Build Legacy Java alpine version << parameters.alpine_version >>
+                command: |
+                  docker context create tls-env
+                  docker buildx create tls-env --use
+                  docker buildx build \
+                    --push \
+                    --platform=linux/arm64,linux/amd64 \
+                    --build-arg ALPINE_VERSION=<< parameters.alpine_version >> \
+                    -t graviteeio/java:17-alpine-<< parameters.alpine_version >> \
+                    -f images/java/Dockerfile.legacy \
+                    images/java/
+      - unless:
+          condition: << parameters.alpine_version >>
+          steps:
+            - run:
+                name: Build Legacy Java alpine version 17
+                command: |
+                  docker context create tls-env
+                  docker buildx create tls-env --use
+                  docker buildx build \
+                    --push \
+                    --platform=linux/arm64,linux/amd64 \
+                    -t graviteeio/java:17 \
+                    -f images/java/Dockerfile.legacy \
+                    images/java/
+
+  build-and-push-java:
+    executor: docker/docker
+    parameters:
+      dry_run:
+        description: "if true, do not push docker image"
+        type: string
+        default: "false"
+      variant_name:
+        description: "docker image variant name that will be publish"
+        type: string
+        default: ""
+      base_image_version:
+        description: "the base image variant to use from"
+        type: string
+        default: ""
+      java_version:
+        description: "java variant to use (from temurin package in debian and eclipse-temurin variant for alpine)"
+        type: string
+        default: ""
+      graviteeio_user:
+        description: "for alpine based image, set it to graviteeio and keep it empty for backward compatibility with default image"
+        type: string
+        default: ""
+    steps:
+      - checkout
+      - prepare-docker-context
+      - when:
+          condition:
+            or:
+              - matches: { pattern: "^.*-alpine$", value: << parameters.variant_name >> }
+                # our default java version (without specify variant == alpine)
+              - matches: { pattern: "^[0-9.]+$", value: << parameters.variant_name >> }
+          steps:
+            - run:
+                name: Build Java Alpine variant << parameters.variant_name >>
+                command: |
+                  docker context create tls-env
+                  docker buildx create tls-env --use
+                  
+                  dockerArgs="--push --platform=linux/arm64,linux/amd64"
+                  if [[ "<< parameters.dry_run >>" == "true" ]]
+                  then
+                    dockerArgs="--output=type=docker,context=tls-env"
+                  fi
+                  
+                  docker buildx build \
+                    ${dockerArgs} \
+                    --build-arg JAVA_VERSION=<< parameters.java_version >> \
+                    --build-arg GRAVITEEIO_USER=<< parameters.graviteeio_user >> \
+                    -t graviteeio/java:<< parameters.variant_name >> \
+                    -f images/java/Dockerfile.alpine \
+                    images/java/
+                  
+                  docker run --rm -ti \
+                    graviteeio/java:<< parameters.variant_name >> \
+                    /bin/sh -c "id && java --version"
+      - when:
+          condition:
+            matches: { pattern: "^.*-debian$", value: << parameters.variant_name >> }
+          steps:
+            - run:
+                name: Build Java Debian variant << parameters.variant_name >>
+                command: |
+                  docker context create tls-env
+                  docker buildx create tls-env --use
+                  
+                  dockerArgs="--push --platform=linux/arm64,linux/amd64"
+                  if [[ "<< parameters.dry_run >>" == "true" ]]
+                  then
+                    dockerArgs="--output=type=docker,context=tls-env"
+                  fi
+                  
+                  docker buildx build \
+                    ${dockerArgs} \
+                    --build-arg DEBIAN_VERSION=<< parameters.base_image_version >> \
+                    --build-arg JAVA_VERSION=<< parameters.java_version >> \
+                    -t graviteeio/java:<< parameters.variant_name >> \
+                    -f images/java/Dockerfile.debian \
+                    images/java/
+                  
+                  docker run --rm -ti \
+                    graviteeio/java:<< parameters.variant_name >> \
+                    /bin/sh -c "id && java --version"
+
+  build-and-push-nginx:
+    executor: docker/docker
+    parameters:
+      version:
+        type: string
+    steps:
+      - checkout
+      - prepare-docker-context
+      - run:
+          command: |
+            docker context create tls-env
+            docker buildx create tls-env --use
+            docker buildx build --push --platform=linux/arm64,linux/amd64 --build-arg NGINX_VERSION=<< parameters.version >> -t graviteeio/nginx:<< parameters.version >> -f images/nginx/Dockerfile images/nginx/        
+
+  build-and-push-git-http-server:
+    executor: docker/docker
+    steps:
+      - checkout
+      - prepare-docker-context
+      - docker/build:
+          docker-context: images/git-http-server
+          image: graviteeio/git-http-server
+          path: images/git-http-server
+          tag: '1.1.0'
+      - docker/push:
+          digest-path: /tmp/digest.txt
+          image: graviteeio/git-http-server
+          tag: '1.1.0'
+      - run:
+          command: |
+            echo "Digest git-http-server image is: $(</tmp/digest.txt)"
+
+  build-and-push-k6:
+    executor: docker/docker
+    steps:
+      - checkout
+      - prepare-docker-context
+      - run:
+          command: |
+            docker context create tls-env
+            docker buildx create tls-env --use
+            docker buildx build --push --platform=linux/arm64,linux/amd64 -t graviteeio/k6:latest -f images/k6/Dockerfile images/k6/
+
+  build-and-push-rpmsign:
+    executor: docker/docker
+    steps:
+      - checkout
+      - prepare-docker-context
+      - docker/install-docker-tools
+      - keeper/env-export:
+          secret-url: keeper://rRi5mBfSPLl5jMvaBhqD8A/custom_field/GPG_KEY_NAME
+          var-name: GPG_KEY_NAME
+      - keeper/env-export:
+          secret-url: keeper://rRi5mBfSPLl5jMvaBhqD8A/custom_field/GPG_KEY_PUBLIC
+          var-name: GPG_KEY_PUBLIC
+      - keeper/env-export:
+          secret-url: keeper://rRi5mBfSPLl5jMvaBhqD8A/custom_field/GPG_KEY_PRIVATE
+          var-name: GPG_KEY_PRIVATE
+      - keeper/env-export:
+          secret-url: keeper://rRi5mBfSPLl5jMvaBhqD8A/custom_field/GPG_KEY_PASSPHRASE
+          var-name: GPG_KEY_PASSPHRASE
+      - run:
+          command: |
+            docker context create tls-env
+            docker buildx create tls-env --use
+            pushd images/rpmsign > /dev/null
+              docker compose build rpmsign
+            
+              docker compose run --rm -ti \
+                -e "GPG_KEY_NAME=${GPG_KEY_NAME}" \
+                -e "GPG_KEY_PUBLIC=${GPG_KEY_PUBLIC}" \
+                -e "GPG_KEY_PRIVATE=${GPG_KEY_PRIVATE}" \
+                -e "GPG_KEY_PASSPHRASE=${GPG_KEY_PASSPHRASE}" \
+                rpmsign-test
+              
+              docker compose push rpmsign
+            popd > /dev/null
+
+  add-docker-images-in-aqua:
+    parameters:
+      docker-image-name:
+        type: string
+      version:
+        type: string
+    environment:
+      DOCKER_IMAGE_NAME: << parameters.docker-image-name >>
+      VERSION: << parameters.version >>
+    docker:
+      - image: cimg/base:stable
+    resource_class: small
+    steps:
+      - keeper/env-export:
+          secret-url: keeper://QeHHkvALPob4pgs1hMd9Gw/custom_field/API Key
+          var-name: AQUA_KEY
+      - keeper/env-export:
+          secret-url: keeper://QeHHkvALPob4pgs1hMd9Gw/custom_field/Secret
+          var-name: AQUA_SECRET
+      - keeper/env-export:
+          secret-url: keeper://LYg-wdlM5UDzSqFFH6Kyig/field/login
+          var-name: AQUA_USERNAME
+      - keeper/env-export:
+          secret-url: keeper://LYg-wdlM5UDzSqFFH6Kyig/field/password
+          var-name: AQUA_PASSWORD
+      - keeper/env-export:
+          secret-url: keeper://QeHHkvALPob4pgs1hMd9Gw/custom_field/ScannerToken
+          var-name: SCANNER_TOKEN
+      - keeper/env-export:
+          secret-url: keeper://TIlcGPFq4rN5GvgnZb9hng/field/password
+          var-name: GITHUB_TOKEN
+      - aquasec/install_billy
+      - aquasec/pull_aqua_scanner_image
+      - prepare-docker-context
+      - aquasec/register_artifact:
+          artifact_to_register: graviteeio/<< parameters.docker-image-name >>:<< parameters.version >>
+          debug: false
+      - aquasec/scan_docker_image:
+          docker_image_to_scan: graviteeio/<< parameters.docker-image-name >>:<< parameters.version >>
+          scanner_url: https://82fb8f75da.cloud.aquasec.com
+
+workflows:
+  run_every_week:
+    when:
+      and:
+        - equal: [ master, << pipeline.git.branch >> ]
+    jobs:
+      - build-and-push-java-legacy:
+          name: build java with alpine 3.20
+          context: cicd-orchestrator
+          alpine_version: "3.20"
+      - add-docker-images-in-aqua:
+          name: analyze java with alpine 3.20
+          context: cicd-orchestrator
+          requires:
+            - build java with alpine 3.20
+          docker-image-name: java
+          version: "17-alpine-3.20"
+      - build-and-push-java-legacy:
+          name: build java with alpine 3.21
+          context: cicd-orchestrator
+          alpine_version: "3.21"
+      - add-docker-images-in-aqua:
+          name: analyze java with alpine 3.21
+          context: cicd-orchestrator
+          requires:
+            - build java with alpine 3.21
+          docker-image-name: java
+          version: "17-alpine-3.21"
+      - build-and-push-java-legacy:
+          name: build java with alpine 3.22
+          context: cicd-orchestrator
+          alpine_version: "3.22"
+      - add-docker-images-in-aqua:
+          name: analyze java with alpine 3.22
+          context: cicd-orchestrator
+          requires:
+            - build java with alpine 3.22
+          docker-image-name: java
+          version: "17-alpine-3.22"
+      - build-and-push-java:
+          name: build our default java based image (eclipse-temurin:21-jre-alpine)
+          context: cicd-orchestrator
+          variant_name: "21"
+          java_version: "21-jre"
+      - add-docker-images-in-aqua:
+          name: analyze our default java based image (eclipse-temurin:21-jre-alpine)
+          context: cicd-orchestrator
+          requires:
+            - build our default java based image (eclipse-temurin:21-jre-alpine)
+          docker-image-name: java
+          version: "21"
+      - build-and-push-java:
+          name: build java based on alpine with java 21-jre
+          context: cicd-orchestrator
+          variant_name: "21-alpine"
+          java_version: "21-jre"
+          graviteeio_user: "graviteeio"
+      - add-docker-images-in-aqua:
+          name: analyze java based on alpine with java 21-jre
+          context: cicd-orchestrator
+          requires:
+            - build java based on alpine with java 21-jre
+          docker-image-name: java
+          version: "21-alpine"
+      - build-and-push-java:
+          name: build java based on debian stable-slim and java 21-jre
+          context: cicd-orchestrator
+          variant_name: "21-debian"
+          base_image_version: "stable-slim"
+          java_version: "21-jre"
+      - add-docker-images-in-aqua:
+          name: analyze java based on debian stable-slim and java 21-jre
+          context: cicd-orchestrator
+          requires:
+            - build java based on debian stable-slim and java 21-jre
+          docker-image-name: java
+          version: "21-debian"
+      - build-and-push-nginx:
+          name: build nginx 1.26.3
+          context: cicd-orchestrator
+          version: "1.26.3"
+      - add-docker-images-in-aqua:
+          name: analyze nginx 1.26.3
+          context: cicd-orchestrator
+          requires:
+            - build nginx 1.26.3
+          docker-image-name: nginx
+          version: "1.26.3"
+      - build-and-push-nginx:
+          name: build nginx 1.27.5
+          context: cicd-orchestrator
+          version: "1.27.5"
+      - add-docker-images-in-aqua:
+          name: analyze nginx 1.27.5
+          context: cicd-orchestrator
+          requires:
+            - build nginx 1.27.5
+          docker-image-name: nginx
+          version: "1.27.5"
+      - build-and-push-git-http-server:
+          name: build git-http-server
+          context: cicd-orchestrator
+      - add-docker-images-in-aqua:
+          name: analyze git-http-server
+          context: cicd-orchestrator
+          requires:
+            - build git-http-server
+          docker-image-name: git-http-server
+          version: "1.1.0"
+      - build-and-push-k6:
+          name: build k6
+          context: cicd-orchestrator
+      - add-docker-images-in-aqua:
+          name: analyze k6
+          context: cicd-orchestrator
+          requires:
+            - build k6
+          docker-image-name: k6
+          version: "latest"
+      - build-and-push-rpmsign:
+          name: build rpmsign
+          context: cicd-orchestrator
+      - add-docker-images-in-aqua:
+          name: analyze rpmsign
+          context: cicd-orchestrator
+          requires:
+            - build rpmsign
+          docker-image-name: rpmsign
+          version: "latest"

@@ -1,0 +1,59 @@
+
+services:
+  rpmsign:
+    image: graviteeio/rpmsign:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+      platforms:
+        - "linux/amd64"
+    environment:
+      GPG_KEY_NAME:
+      GPG_KEY_PUBLIC:
+      GPG_KEY_PRIVATE:
+      GPG_KEY_PASSPHRASE:
+
+  rpmsign-test:
+    profiles:
+      - test
+    image: graviteeio/rpmsign:latest
+    environment:
+      GPG_KEY_NAME: "Gravitee.io Test"
+      GPG_KEY_PASSPHRASE: "this is not an awesome password"
+      GPG_KEY_PUBLIC:
+      GPG_KEY_PRIVATE:
+    command: >-
+      bash -c '
+        set -euo pipefail
+        source "$${HOME}/utils.sh"
+        workspace="$(mktemp -d /tmp/rpmsign_test_XXXX)"
+        pushd "$${workspace}" > /dev/null
+          curl \
+            --location \
+            --remote-name \
+            --remote-header-name \
+            --output-dir "/rpms" \
+            "https://packagecloud.io/graviteeio/rpms/packages/el/7/graviteeio-apim-gateway-4x-4.6.6-1.noarch.rpm/download.rpm"
+          
+          echo "call scenario_sign_rpm"
+          scenario_sign_rpm
+      
+          echo "Test context:"
+          list_keys
+          keyid="$(gpg2 --list-keys --with-keygrip --with-colons "$${GPG_KEY_NAME}" | grep "^pub" | cut -d ":" -f 5)"
+          echo "KeyID used for signing: $${keyid}"
+          
+          echo "Test checks"
+          if rpm_info | grep "Signature" | grep -qi "none"
+          then
+            echo "ERROR: RPM is not signed"
+            exit 1
+          elif ! rpm_info | grep "^Signature" | grep -qi "Key ID $${keyid}"
+          then
+            echo "ERROR: RPM is signed by wrong key"
+            exit 1
+          else
+            echo "Test pass ✔"
+          fi
+        popd > /dev/null
+      '

@@ -1,0 +1,5 @@
+# Default
+*                       @gravitee-io/archi
+*                       @gravitee-io/platform
+/enterprise/apim/       @gravitee-io/apim
+/enterprise/am/         @gravitee-io/am

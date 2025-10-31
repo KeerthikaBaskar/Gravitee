@@ -1,0 +1,14 @@
+= Gravitee Dockerfiles
+
+ifdef::env-github[]
+image:https://f.hubspotusercontent40.net/hubfs/7600448/gravitee-github-button.jpg["Join the community forum", link="https://community.gravitee.io?utm_source=readme", height=20]
+endif::[]
+
+Hosts all Dockerfiles to build GraviteeIO images.
+ 
+  * _images_ stored Dockerfile for each GraviteeIO component
+
+== Documentation
+
+For Gravitee.io API Management, read documentation from https://docs.gravitee.io/apim/3.x/apim_installation_guide_docker_compose_quickstart.html
+For Gravitee.io Access Management, read documentation from https://docs.gravitee.io/am/current/am_installguide_docker_compose.html

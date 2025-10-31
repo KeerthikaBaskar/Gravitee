@@ -1,0 +1,73 @@
+= Gravitee rpmsign docker image
+
+This image is designed to sign RPM file with GPG key.
+
+It takes GPG Key and info from environment variable and RPM files in a volume.
+And it will sign all RPMs using the GPG key.
+
+=== Usage example:
+
+Let's say you have a directory `rpms` with RPM files to sign:
+
+[source,bash]
+----
+docker run --rm -ti \
+    -v "${PWD}/rpms:/rpms" \
+    -e "GPG_KEY_NAME=${GPG_KEY_NAME}" \
+    -e "GPG_KEY_PUBLIC=${GPG_KEY_PUBLIC}" \
+    -e "GPG_KEY_PRIVATE=${GPG_KEY_PRIVATE}" \
+    -e "GPG_KEY_PASSPHRASE=${GPG_KEY_PASSPHRASE}" \
+    graviteeio/rpmsign
+----
+
+=== Build
+
+To build the image, just run:
+
+[source,bash]
+----
+docker compose build rpmsign
+----
+
+=== Integration test
+
+After building, you can run a test:
+
+. Define GPG environment variable
+.. By getting GPG values from keeper record `rRi5mBfSPLl5jMvaBhqD8A`
+.. Or creating manually from image utils:
++
+[source,bash]
+----
+docker run --rm -ti \
+    -v "${PWD}:/gpgkeys" \
+    -w "/gpgkeys" \
+    graviteeio/rpmsign \
+    bash
+
+generate_GPG_key "SuperME" "Awesome Password or not"
+export_keys "SuperME" "mykey"
+exit #get out of the docker container
+----
+
+. Create environment variable:
++
+[source,bash]
+----
+export GPG_KEY_NAME="SuperME"
+export GPG_KEY_PASSPHRASE="Awesome Password or not"
+export GPG_KEY_PUBLIC="$(cat mykey.pub)"
+export GPG_KEY_PRIVATE="$(cat mykey.key)"
+----
+
+. Finally run the test:
++
+[source,bash]
+----
+docker compose run --rm -ti \
+    -e "GPG_KEY_NAME=${GPG_KEY_NAME}" \
+    -e "GPG_KEY_PUBLIC=${GPG_KEY_PUBLIC}" \
+    -e "GPG_KEY_PRIVATE=${GPG_KEY_PRIVATE}" \
+    -e "GPG_KEY_PASSPHRASE=${GPG_KEY_PASSPHRASE}" \
+    rpmsign-test
+----
