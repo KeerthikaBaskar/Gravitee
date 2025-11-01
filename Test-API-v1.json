@@ -1,0 +1,134 @@
+{
+  "name" : "Test API",
+  "crossId" : "2bfa5692-bff6-4ddb-ba56-92bff6cddbcf",
+  "version" : "v1",
+  "execution_mode" : "v3",
+  "description" : "This is a Test API which calls the backend",
+  "visibility" : "PRIVATE",
+  "flows" : [ ],
+  "gravitee" : "2.0.0",
+  "flow_mode" : "DEFAULT",
+  "resources" : [ ],
+  "properties" : [ ],
+  "members" : [ {
+    "source" : "memory",
+    "sourceId" : "admin",
+    "roles" : [ "cf478a80-edac-44f5-878a-80edac34f58f" ]
+  } ],
+  "pages" : [ {
+    "id" : "e916ff37-c21e-4871-96ff-37c21e58710d",
+    "crossId" : "d07018a1-cb8e-4f9b-b018-a1cb8eaf9b80",
+    "name" : "Aside",
+    "type" : "SYSTEM_FOLDER",
+    "order" : 0,
+    "published" : true,
+    "visibility" : "PUBLIC",
+    "lastModificationDate" : 1762006707194,
+    "contentType" : "application/json",
+    "homepage" : false,
+    "parentPath" : "",
+    "excludedAccessControls" : false,
+    "accessControls" : [ ],
+    "api" : "2c296d0f-3b4b-4efa-a96d-0f3b4b6efa1d",
+    "attached_media" : [ ]
+  } ],
+  "plans" : [ {
+    "id" : "5415872e-0bc1-411e-9587-2e0bc1711e3b",
+    "crossId" : "0e3eb9d9-b588-4b5c-beb9-d9b5889b5c4b",
+    "name" : "Standard Plan",
+    "description" : "It is Standard Plan",
+    "validation" : "AUTO",
+    "security" : "API_KEY",
+    "type" : "API",
+    "status" : "PUBLISHED",
+    "api" : "2c296d0f-3b4b-4efa-a96d-0f3b4b6efa1d",
+    "order" : 0,
+    "characteristics" : [ ],
+    "created_at" : 1762001213545,
+    "updated_at" : 1762006707145,
+    "published_at" : 1762001213547,
+    "paths" : { },
+    "flows" : [ {
+      "id" : "18a29c98-e887-4379-a29c-98e887a3799c",
+      "name" : "",
+      "path-operator" : {
+        "path" : "/",
+        "operator" : "STARTS_WITH"
+      },
+      "condition" : "",
+      "consumers" : [ ],
+      "methods" : [ ],
+      "pre" : [ {
+        "name" : "Rate limit",
+        "description" : "",
+        "enabled" : true,
+        "policy" : "rate-limit",
+        "configuration" : {"async":false,"addHeaders":false,"rate":{"periodTime":1,"limit":5,"periodTimeUnit":"MINUTES","key":""}}
+      } ],
+      "post" : [ ],
+      "enabled" : true
+    } ],
+    "comment_required" : false
+  } ],
+  "metadata" : [ {
+    "key" : "email-support",
+    "name" : "email-support",
+    "format" : "MAIL",
+    "value" : "${(api.primaryOwner.email)!''}",
+    "defaultValue" : "support@change.me",
+    "apiId" : "2c296d0f-3b4b-4efa-a96d-0f3b4b6efa1d"
+  } ],
+  "id" : "2c296d0f-3b4b-4efa-a96d-0f3b4b6efa1d",
+  "path_mappings" : [ ],
+  "proxy" : {
+    "virtual_hosts" : [ {
+      "path" : "/students"
+    } ],
+    "strip_context_path" : false,
+    "preserve_host" : false,
+    "groups" : [ {
+      "name" : "default-group",
+      "endpoints" : [ {
+        "healthcheck" : {
+          "enabled" : false
+        },
+        "backup" : false,
+        "inherit" : true,
+        "name" : "default",
+        "weight" : 1,
+        "type" : "http",
+        "target" : "http://host.docker.internal:5000"
+      } ],
+      "load_balancing" : {
+        "type" : "ROUND_ROBIN"
+      },
+      "http" : {
+        "connectTimeout" : 5000,
+        "idleTimeout" : 60000,
+        "keepAlive" : true,
+        "readTimeout" : 10000,
+        "pipelining" : false,
+        "maxConcurrentConnections" : 100,
+        "useCompression" : true,
+        "followRedirects" : false
+      }
+    } ],
+    "cors" : {
+  "enabled" : true,
+  "allowCredentials" : false,
+  "allowOrigin" : [ "*" ],
+  "allowHeaders" : [ "content-type", "x-gravitee-api-key" ],
+  "allowMethods" : [ "DELETE", "POST", "GET", "OPTIONS", "PUT" ],
+  "exposeHeaders" : [ "x-gravitee-api-key" ],
+  "maxAge" : 3600,
+  "runPolicies" : true
+  }
+
+  },
+  "response_templates" : { },
+  "primaryOwner" : {
+    "id" : "399548dc-cc56-4e82-9548-dccc569e821b",
+    "displayName" : "admin",
+    "type" : "USER"
+  }
+}
