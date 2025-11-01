@@ -276,6 +276,6 @@ export default App;
 
 ---
 
-**Author:** Mohamed Faiz  
+**Author:** Keerthika B  
 **Environment:** Gravitee APIM (Docker), Node.js 18+, React 18+  
 **Last updated:** November 2025
