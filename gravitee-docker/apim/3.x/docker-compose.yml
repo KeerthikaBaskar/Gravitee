@@ -31,7 +31,7 @@ services:
     container_name: gio_apim_mongodb
     restart: always
     volumes:
-      - data-mongo:/data/db
+      - ./data/mongo:/data/db
       - ./logs/apim-mongodb:/var/log/mongodb
     networks:
       - storage
@@ -41,7 +41,7 @@ services:
     container_name: gio_apim_elasticsearch
     restart: always
     volumes:
-      - data-elasticsearch:/usr/share/elasticsearch/data
+      - ./data/elasticsearch:/usr/share/elasticsearch/data
     environment:
       - http.host=0.0.0.0
       - transport.host=0.0.0.0

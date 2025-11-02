@@ -1,352 +1,392 @@
-// import { useState, useEffect } from "react";
+// import { useState, useEffect, useRef } from "react";
 // import axios from "axios";
 
-// function App() {
-//   const [students, setStudents] = useState([]);
-//   const [name, setName] = useState("");
-//   const [age, setAge] = useState("");
-//   const [loading, setLoading] = useState(false);
-//   const [error, setError] = useState("");
+// const GATEWAY_URL = "http://localhost:8082";
 
-//   // 🔑 List of Gravitee API keys (for rotation)
-//   const GRAVITEE_KEYS = [
-//     "6ed4cb1f-4d11-497c-9542-73c53a42c0b6",
-//     "cce3a92d-7a86-4334-89ee-f3f77be6701b",
-//   ];
+// // 🔑 Multiple keys per domain
+// const DOMAIN_KEYS = {
+//   students: ["a60ceb3e-2b29-499a-8254-8bb4b7039772", "fb04451a-2311-40c2-bf01-d027a007a1aa"],
+//   courses: ["7a4e543b-3d14-4c7c-9b22-9d29f6c8d664", "494b1659-eab4-47f1-85d1-b9f9db41844d"],
+//   enroll: ["fa5b5f87-4930-413c-bee3-0d6a07b0ec40", "ec8cd376-23e4-4aea-afbb-dee96e9d2540"],
+// };
 
-//   // Base Gravitee Gateway URL
-//   const API_BASE = "http://localhost:8082/students";
-
-//   // Track current key
+// // 🧠 Helper function with rotation
+// async function callAPI(domain, endpoint, method = "get", data = null) {
+//   const keys = DOMAIN_KEYS[domain];
 //   let currentKeyIndex = 0;
-
-//   // 🧠 Function to make requests with key rotation
-//   const callWithRotation = async (method, url, data = null) => {
 //   let lastError = null;
 
-//   for (let i = 0; i < GRAVITEE_KEYS.length; i++) {
-//     const key = GRAVITEE_KEYS[currentKeyIndex];
-//     console.log(`➡️ Using Gravitee Key [${currentKeyIndex + 1}] ${key}`);
+//   for (let i = 0; i < keys.length; i++) {
+//     const key = keys[currentKeyIndex];
+//     const url = `${GATEWAY_URL}/${domain}${endpoint}`;
+//     console.log(`➡️ ${domain.toUpperCase()} using key [${currentKeyIndex + 1}] ${key}`);
 
 //     try {
 //       const res = await axios({
 //         method,
-//         url: `${API_BASE}${url}`,
+//         url,
+//         data,
 //         headers: {
 //           "X-Gravitee-Api-Key": key,
 //           "Content-Type": "application/json",
 //         },
-//         data,
-//         validateStatus: () => true,
+//         validateStatus: () => true, // handle manually
 //       });
 
-//       // 🧩 Log rate-limit headers if present
-//       const limit = res.headers["x-ratelimit-limit"];
-//       const remaining = res.headers["x-ratelimit-remaining"];
-//       const reset = res.headers["x-ratelimit-reset"];
+//       // Log rate limit headers
+//       const limit = res.headers["x-rate-limit-limit"] || res.headers["x-ratelimit-limit"];
+//       const remaining = res.headers["x-rate-limit-remaining"] || res.headers["x-ratelimit-remaining"];
+//       const reset = res.headers["x-rate-limit-reset"] || res.headers["x-ratelimit-reset"];
 //       if (limit && remaining) {
 //         console.log(
-//           `%c📊 Rate limit → Limit: ${limit}, Remaining: ${remaining}, Reset: ${reset}`,
+//           `%c${domain.toUpperCase()} Limit:${limit} Remaining:${remaining} Reset:${reset}`,
 //           "color: orange"
 //         );
 //       }
 
+//       // ✅ Success
 //       if (res.status >= 200 && res.status < 300) {
-//         console.log(`✅ Success with Key [${currentKeyIndex + 1}]`);
+//         console.log(`✅ ${domain} success with key [${currentKeyIndex + 1}]`);
 //         return res.data;
 //       }
 
+//       // ⚠️ Rotate key on rate-limit or forbidden
 //       if ([403, 429].includes(res.status)) {
 //         console.warn(
-//           `⚠️ Key [${currentKeyIndex + 1}] got ${res.status}. Rotating key...`
+//           `⚠️ ${domain} key [${currentKeyIndex + 1}] failed (${res.status}), rotating key...`
 //         );
-//         currentKeyIndex = (currentKeyIndex + 1) % GRAVITEE_KEYS.length;
+//         currentKeyIndex = (currentKeyIndex + 1) % keys.length;
 //         continue;
 //       }
 
-//       lastError = res.data || res.statusText;
+//       lastError = res.statusText || res.data;
 //       break;
 //     } catch (err) {
-//       console.error(
-//         `💥 Request failed with key [${currentKeyIndex + 1}]: ${err.message}`
-//       );
+//       console.error(`💥 ${domain} key [${currentKeyIndex + 1}] failed: ${err.message}`);
 //       lastError = err.message;
-//       currentKeyIndex = (currentKeyIndex + 1) % GRAVITEE_KEYS.length;
+//       currentKeyIndex = (currentKeyIndex + 1) % keys.length;
 //     }
 //   }
 
-//   throw new Error(lastError || "All Gravitee keys failed");
-// };
+//   throw new Error(lastError || `All keys for ${domain} failed`);
+// }
 
+// export default function App() {
+//   const [students, setStudents] = useState([]);
+//   const [courses, setCourses] = useState([]);
+//   const [enrollments, setEnrollments] = useState([]);
+//   const [name, setName] = useState("");
+//   const [title, setTitle] = useState("");
+//   const [msg, setMsg] = useState("");
+//   const [error, setError] = useState("");
+//   const [loading, setLoading] = useState(false);
 
-//   // 🔹 Fetch students
-//   const fetchStudents = async () => {
+//   // 🔹 Load initial data
+//   const loadAll = async () => {
 //     try {
 //       setLoading(true);
-//       const data = await callWithRotation("get", "/students");
-//       setStudents(data);
+//       const [s, c, e] = await Promise.all([
+//         callAPI("students", "/students/list"),
+//         callAPI("courses", "/courses/list"),
+//         callAPI("enroll", "/enroll/list"),
+//       ]);
+//       setStudents(s);
+//       setCourses(c);
+//       setEnrollments(e);
 //       setLoading(false);
 //     } catch (err) {
-//       setError("❌ Failed to fetch students: " + err.message);
+//       setError("Failed to fetch data: " + err.message);
 //       setLoading(false);
 //     }
 //   };
 
 //   useEffect(() => {
-//     fetchStudents();
+//     loadAll();
 //   }, []);
 
-//   // 🔹 Add student
-//   const addStudent = async (e) => {
-//     e.preventDefault();
-//     if (!name || !age) return;
+//   // 🔸 Add student
+//   const addStudent = async () => {
+//     if (!name) return;
+//     await callAPI("students", "/students/add", "post", { name, age: 22 });
+//     setName("");
+//     loadAll();
+//   };
 
-//     try {
-//       setLoading(true);
-//       await callWithRotation("post", "/students", { name, age: Number(age) });
-//       setName("");
-//       setAge("");
-//       fetchStudents();
-//     } catch (err) {
-//       setError("❌ Failed to add student: " + err.message);
-//     } finally {
-//       setLoading(false);
-//     }
+//   // 🔸 Add course
+//   const addCourse = async () => {
+//     if (!title) return;
+//     await callAPI("courses", "/courses/add", "post", { title });
+//     setTitle("");
+//     loadAll();
+//   };
+
+//   // 🔸 Enroll demo
+//   const enrollStudent = async () => {
+//     await callAPI("enroll", "/enroll/add", "post", { studentId: 1, courseId: 1 });
+//     setMsg("✅ Student 1 enrolled in Course 1");
+//     loadAll();
 //   };
 
 //   return (
-//     <div style={{ fontFamily: "Arial", padding: "30px" }}>
-//       <h1>🎓 Student Management</h1>
-//       <form onSubmit={addStudent} style={{ marginBottom: "20px" }}>
+//     <div style={{ fontFamily: "Arial", padding: 30 }}>
+//       <h1>🎓 Gravitee Multi-Key Demo</h1>
+//       <p style={{ color: "gray" }}>
+//         Each domain (Students, Courses, Enroll) has 2 API keys — rotation enabled.
+//       </p>
+
+//       {error && <p style={{ color: "red" }}>{error}</p>}
+//       {msg && <p style={{ color: "green" }}>{msg}</p>}
+//       {loading && <p>Loading data...</p>}
+
+//       <div style={{ marginBottom: 20 }}>
 //         <input
-//           type="text"
-//           placeholder="Name"
+//           placeholder="Student name"
 //           value={name}
 //           onChange={(e) => setName(e.target.value)}
-//           style={{ marginRight: "10px", padding: "5px" }}
+//           style={{ marginRight: 10, padding: 5 }}
 //         />
-//         <input
-//           type="number"
-//           placeholder="Age"
-//           value={age}
-//           onChange={(e) => setAge(e.target.value)}
-//           style={{ marginRight: "10px", padding: "5px" }}
-//         />
-//         <button type="submit" style={{ padding: "5px 10px" }}>
-//           ➕ Add Student
-//         </button>
-//       </form>
+//         <button onClick={addStudent}>➕ Add Student</button>
+//       </div>
 
-//       {loading ? (
-//         <p>Loading students...</p>
-//       ) : error ? (
-//         <p style={{ color: "red" }}>{error}</p>
-//       ) : (
-//         <table border="1" cellPadding="10">
-//           <thead>
-//             <tr>
-//               <th>ID</th>
-//               <th>Name</th>
-//               <th>Age</th>
-//             </tr>
-//           </thead>
-//           <tbody>
-//             {students.map((s) => (
-//               <tr key={s.id}>
-//                 <td>{s.id}</td>
-//                 <td>{s.name}</td>
-//                 <td>{s.age}</td>
-//               </tr>
+//       <div style={{ marginBottom: 20 }}>
+//         <input
+//           placeholder="Course title"
+//           value={title}
+//           onChange={(e) => setTitle(e.target.value)}
+//           style={{ marginRight: 10, padding: 5 }}
+//         />
+//         <button onClick={addCourse}>➕ Add Course</button>
+//       </div>
+
+//       <div style={{ marginBottom: 20 }}>
+//         <button onClick={enrollStudent}>📘 Enroll Student 1 → Course 1</button>
+//       </div>
+
+//       <div style={{ display: "flex", gap: "40px" }}>
+//         <div>
+//           <h2>Students</h2>
+//           <ul>{students.map((s) => <li key={s.id}>{s.name}</li>)}</ul>
+//         </div>
+
+//         <div>
+//           <h2>Courses</h2>
+//           <ul>{courses.map((c) => <li key={c.id}>{c.title}</li>)}</ul>
+//         </div>
+
+//         <div>
+//           <h2>Enrollments</h2>
+//           <ul>
+//             {enrollments.map((e) => (
+//               <li key={e.id}>Student {e.studentId} → Course {e.courseId}</li>
 //             ))}
-//           </tbody>
-//         </table>
-//       )}
+//           </ul>
+//         </div>
+//       </div>
 //     </div>
 //   );
 // }
 
-// export default App;
-
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import axios from "axios";
 
-function App() {
-  const [students, setStudents] = useState([]);
-  const [name, setName] = useState("");
-  const [age, setAge] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
+// 🌐 Gravitee Gateway Base URL
+const GATEWAY_URL = "http://localhost:8082";
 
-  // 🔑 Gravitee API keys for rotation
-  const GRAVITEE_KEYS = [
-    "6ed4cb1f-4d11-497c-9542-73c53a42c0b6",
-    "cce3a92d-7a86-4334-89ee-f3f77be6701b",
-  ];
+// 🔑 Domain-wise API keys (two per API)
+const DOMAIN_KEYS = {
+  student: [
+    "a60ceb3e-2b29-499a-8254-8bb4b7039772",
+    "fb04451a-2311-40c2-bf01-d027a007a1aa",
+  ],
+  course: [
+    "7a4e543b-3d14-4c7c-9b22-9d29f6c8d664",
+    "494b1659-eab4-47f1-85d1-b9f9db41844d",
+  ],
+  enroll: [
+    "fa5b5f87-4930-413c-bee3-0d6a07b0ec40",
+    "ec8cd376-23e4-4aea-afbb-dee96e9d2540",
+  ],
+};
 
-  const API_BASE = "http://localhost:8082/students";
+// 🧩 Context paths in Gravitee
+const CONTEXT_PATHS = {
+  student: "/student-api",
+  course: "/courses-api",
+  enroll: "/enroll-api",
+};
 
-  // Track current key index persistently
-  const currentKeyIndex = useRef(0);
+// 🔧 Universal call function with key rotation
+async function callAPI(domain, endpoint, method = "get", data = null) {
+  const keys = DOMAIN_KEYS[domain];
+  let currentKeyIndex = 0;
+  let lastError = null;
 
-  // 🧠 Unified call handler with key rotation + rate-limit logs
-  const callWithRotation = async (method, url, data = null) => {
-    let lastError = null;
+  for (let i = 0; i < keys.length; i++) {
+    const key = keys[currentKeyIndex];
+    const url = `${GATEWAY_URL}${CONTEXT_PATHS[domain]}${endpoint}`;
+    console.log(`➡️ ${domain.toUpperCase()} using key [${currentKeyIndex + 1}] ${key}`);
 
-    for (let i = 0; i < GRAVITEE_KEYS.length; i++) {
-      const key = GRAVITEE_KEYS[currentKeyIndex.current];
-      console.log(`➡️ Using Gravitee Key [${currentKeyIndex.current + 1}] ${key}`);
+    try {
+      const res = await axios({
+        method,
+        url,
+        data,
+        headers: {
+          "X-Gravitee-Api-Key": key,
+          "Content-Type": "application/json",
+        },
+        validateStatus: () => true,
+      });
 
-      try {
-        const res = await axios({
-          method,
-          url: `${API_BASE}${url}`,
-          headers: {
-            "X-Gravitee-Api-Key": key,
-            "Content-Type": "application/json",
-          },
-          data,
-          validateStatus: () => true,
-        });
+      // 🧠 Rate-limit info
+      const limit = res.headers["x-rate-limit-limit"] || res.headers["x-ratelimit-limit"];
+      const remaining =
+        res.headers["x-rate-limit-remaining"] || res.headers["x-ratelimit-remaining"];
+      const reset = res.headers["x-rate-limit-reset"] || res.headers["x-ratelimit-reset"];
 
-        // 🧩 Read rate-limit headers (if CORS exposes them)
-        const limit =
-          res.headers["x-rate-limit-limit"] || res.headers["x-ratelimit-limit"];
-        const remaining =
-          res.headers["x-rate-limit-remaining"] ||
-          res.headers["x-ratelimit-remaining"];
-        const reset =
-          res.headers["x-rate-limit-reset"] || res.headers["x-ratelimit-reset"];
-
-        if (limit && remaining) {
-          console.log(
-            `%c📊 Rate limit → Limit: ${limit}, Remaining: ${remaining}, Reset: ${reset}`,
-            "color: orange"
-          );
-        } else {
-          console.log("ℹ️ Rate-limit headers not visible (check CORS exposeHeaders).");
-        }
-
-        // ✅ Success
-        if (res.status >= 200 && res.status < 300) {
-          console.log(`✅ Success with Key [${currentKeyIndex.current + 1}]`);
-          return res.data;
-        }
-
-        // ⚠️ Rate-limit or quota exceeded
-        if ([403, 429].includes(res.status)) {
-          console.warn(
-            `⚠️ Key [${currentKeyIndex.current + 1}] got ${res.status}. Rotating key...`
-          );
-          currentKeyIndex.current =
-            (currentKeyIndex.current + 1) % GRAVITEE_KEYS.length;
-          continue;
-        }
-
-        lastError = res.data || res.statusText;
-        break;
-      } catch (err) {
-        console.error(
-          `💥 Request failed with key [${currentKeyIndex.current + 1}]: ${err.message}`
+      if (limit && remaining) {
+        console.log(
+          `%c${domain.toUpperCase()} → Limit: ${limit}, Remaining: ${remaining}, Reset: ${reset}`,
+          "color: orange"
         );
-        lastError = err.message;
-        currentKeyIndex.current =
-          (currentKeyIndex.current + 1) % GRAVITEE_KEYS.length;
       }
+
+      if (res.status >= 200 && res.status < 300) {
+        console.log(`✅ ${domain} success with key [${currentKeyIndex + 1}]`);
+        return res.data;
+      }
+
+      if ([403, 429].includes(res.status)) {
+        console.warn(
+          `⚠️ ${domain} key [${currentKeyIndex + 1}] failed (${res.status}), rotating...`
+        );
+        currentKeyIndex = (currentKeyIndex + 1) % keys.length;
+        continue;
+      }
+
+      lastError = res.statusText || res.data;
+      break;
+    } catch (err) {
+      console.error(`💥 ${domain} key [${currentKeyIndex + 1}] failed: ${err.message}`);
+      lastError = err.message;
+      currentKeyIndex = (currentKeyIndex + 1) % keys.length;
     }
+  }
 
-    throw new Error(lastError || "All Gravitee keys failed");
-  };
+  throw new Error(lastError || `All keys for ${domain} failed`);
+}
 
-  // 🔹 Fetch students
-  const fetchStudents = async () => {
+export default function App() {
+  const [students, setStudents] = useState([]);
+  const [courses, setCourses] = useState([]);
+  const [enrollments, setEnrollments] = useState([]);
+  const [studentName, setStudentName] = useState("");
+  const [courseTitle, setCourseTitle] = useState("");
+  const [msg, setMsg] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  // 🔹 Load everything at start
+  const loadAll = async () => {
     try {
       setLoading(true);
-      const data = await callWithRotation("get", "/students");
-      setStudents(data);
+      const [s, c, e] = await Promise.all([
+        callAPI("student", "/student/list"),
+        callAPI("course", "/courses/list"),
+        callAPI("enroll", "/enroll/list"),
+      ]);
+      setStudents(s);
+      setCourses(c);
+      setEnrollments(e);
       setLoading(false);
     } catch (err) {
-      setError("❌ Failed to fetch students: " + err.message);
+      setError("❌ " + err.message);
       setLoading(false);
     }
   };
 
-  // 🔹 Prevent React strict mode double-call
   useEffect(() => {
-    let called = false;
-    if (!called) {
-      fetchStudents();
-      called = true;
-    }
+    loadAll();
   }, []);
 
-  // 🔹 Add student
-  const addStudent = async (e) => {
-    e.preventDefault();
-    if (!name || !age) return;
+  // 🔸 Add Student
+  const addStudent = async () => {
+    if (!studentName) return;
+    await callAPI("student", "/student/add", "post", { name: studentName, age: 21 });
+    setStudentName("");
+    loadAll();
+  };
 
-    try {
-      setLoading(true);
-      await callWithRotation("post", "/students", { name, age: Number(age) });
-      setName("");
-      setAge("");
-      fetchStudents();
-    } catch (err) {
-      setError("❌ Failed to add student: " + err.message);
-    } finally {
-      setLoading(false);
-    }
+  // 🔸 Add Course
+  const addCourse = async () => {
+    if (!courseTitle) return;
+    await callAPI("course", "/course/add", "post", { title: courseTitle });
+    setCourseTitle("");
+    loadAll();
+  };
+
+  // 🔸 Enroll
+  const enrollStudent = async () => {
+    await callAPI("enroll", "/enroll/add", "post", { studentId: 1, courseId: 1 });
+    setMsg("✅ Student 1 enrolled in Course 1");
+    loadAll();
   };
 
   return (
-    <div style={{ fontFamily: "Arial", padding: "30px" }}>
-      <h1>🎓 Student Management (with Gravitee Rate-Limiting)</h1>
+    <div style={{ fontFamily: "Arial", padding: 30 }}>
+      <h1>🎓 Gravitee Multi-Domain Demo</h1>
+      <p style={{ color: "gray" }}>
+        APIs: <b>/student-api</b>, <b>/course-api</b>, <b>/enroll-api</b> (each with key rotation)
+      </p>
 
-      <form onSubmit={addStudent} style={{ marginBottom: "20px" }}>
-        <input
-          type="text"
-          placeholder="Name"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          style={{ marginRight: "10px", padding: "5px" }}
-        />
-        <input
-          type="number"
-          placeholder="Age"
-          value={age}
-          onChange={(e) => setAge(e.target.value)}
-          style={{ marginRight: "10px", padding: "5px" }}
-        />
-        <button type="submit" style={{ padding: "5px 10px" }}>
-          ➕ Add Student
-        </button>
-      </form>
+      {error && <p style={{ color: "red" }}>{error}</p>}
+      {msg && <p style={{ color: "green" }}>{msg}</p>}
+      {loading && <p>Loading data...</p>}
 
-      {loading ? (
-        <p>Loading students...</p>
-      ) : error ? (
-        <p style={{ color: "red" }}>{error}</p>
-      ) : (
-        <table border="1" cellPadding="10">
-          <thead>
-            <tr>
-              <th>ID</th>
-              <th>Name</th>
-              <th>Age</th>
-            </tr>
-          </thead>
-          <tbody>
-            {students.map((s) => (
-              <tr key={s.id}>
-                <td>{s.id}</td>
-                <td>{s.name}</td>
-                <td>{s.age}</td>
-              </tr>
+      <div style={{ marginBottom: 20 }}>
+        <input
+          placeholder="Student name"
+          value={studentName}
+          onChange={(e) => setStudentName(e.target.value)}
+          style={{ marginRight: 10, padding: 5 }}
+        />
+        <button onClick={addStudent}>➕ Add Student</button>
+      </div>
+
+      <div style={{ marginBottom: 20 }}>
+        <input
+          placeholder="Course title"
+          value={courseTitle}
+          onChange={(e) => setCourseTitle(e.target.value)}
+          style={{ marginRight: 10, padding: 5 }}
+        />
+        <button onClick={addCourse}>➕ Add Course</button>
+      </div>
+
+      <div style={{ marginBottom: 20 }}>
+        <button onClick={enrollStudent}>📘 Enroll Student 1 → Course 1</button>
+      </div>
+
+      <div style={{ display: "flex", gap: "40px" }}>
+        <div>
+          <h2>Students</h2>
+          <ul>{students.map((s) => <li key={s.id}>{s.name}</li>)}</ul>
+        </div>
+
+        <div>
+          <h2>Courses</h2>
+          <ul>{courses.map((c) => <li key={c.id}>{c.title}</li>)}</ul>
+        </div>
+
+        <div>
+          <h2>Enrollments</h2>
+          <ul>
+            {enrollments.map((e) => (
+              <li key={e.id}>Student {e.studentId} → Course {e.courseId}</li>
             ))}
-          </tbody>
-        </table>
-      )}
+          </ul>
+        </div>
+      </div>
     </div>
   );
 }
-
-export default App;
