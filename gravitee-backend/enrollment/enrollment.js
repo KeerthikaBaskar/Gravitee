@@ -1,7 +1,12 @@
 // enroll.js
 import express from "express";
 const app = express();
-app.use(express.json());
+// app.use(express.json());
+app.use((req, res, next) => {
+  if (req.method === "GET" || req.method === "DELETE") return next();
+  express.json()(req, res, next);
+});
+
 
 let enrollments = [
   { id: 1, studentId: 1, courseId: 2 },

@@ -1,7 +1,13 @@
 // courses.js
 import express from "express";
 const app = express();
-app.use(express.json());
+// app.use(express.json());
+
+app.use((req, res, next) => {
+  if (req.method === "GET" || req.method === "DELETE") return next();
+  express.json()(req, res, next);
+});
+
 
 let courses = [
   { id: 1, title: "React Basics", duration: "3 weeks" },
