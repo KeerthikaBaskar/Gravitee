@@ -1,5 +1,6 @@
 // courses.js
 import express from "express";
+
 const app = express();
 // app.use(express.json());
 
@@ -16,17 +17,17 @@ let courses = [
 ];
 
 // ✅ List courses
-// app.get("/courses/list", (req, res) => {
-//   res.json(courses);
-// });
-
 app.get("/courses/list", (req, res) => {
-  const courses = db.map((c) => ({
-    id: c.id || c.courseId,
-    title: c.title || c.courseName,
-  }));
   res.json(courses);
 });
+
+// app.get("/courses/list", (req, res) => {
+//   const courses = db.map((c) => ({
+//     id: c.id || c.courseId,
+//     title: c.title || c.courseName,
+//   }));
+//   res.json(courses);
+// });
 
 
 // ✅ Add a new course

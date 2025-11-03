@@ -25,10 +25,7 @@ app.post("/student/add", (req, res) => {
   if (!name || !age)
     return res.status(400).json({ error: "Name and age required" });
 
-  const newStudent = {
-  id: Date.now(), // always unique
-  name,
-};
+  const newStudent = { id: students.length + 1, name, age };
   students.push(newStudent);
   res.json(newStudent);
 });
