@@ -48,4 +48,4 @@ app.delete("/courses/delete/:id", (req, res) => {
   res.json({ message: `Course ${id} deleted` });
 });
 
-app.listen(3002, () => console.log("📘 Courses API running on port 3002"));
+app.listen(3002, '0.0.0.0', () => console.log("📘 Courses API running on port 3002"));

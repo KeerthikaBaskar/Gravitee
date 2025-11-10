@@ -36,4 +36,4 @@ app.delete("/enroll/delete/:id", (req, res) => {
   res.json({ message: `Enrollment ${id} deleted` });
 });
 
-app.listen(3003, () => console.log("🧾 Enrollments API running on port 3003"));
+app.listen(3003, '0.0.0.0', () => console.log("🧾 Enrollments API running on port 3003"));

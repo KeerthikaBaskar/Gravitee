@@ -1,9 +1,9 @@
 import { useState, useEffect } from "react";
 import axios from "axios";
 
-const STUDENT_API = "http://localhost:8082/student-api";
-const COURSE_API = "http://localhost:8082/courses-api";
-const ENROLL_API = "http://localhost:8082/enroll-api";
+const STUDENT_API = "http://10.0.0.79:8082/student-api";
+const COURSE_API = "http://10.0.0.79:8082/courses-api";
+const ENROLL_API = "http://10.0.0.79:8082/enroll-api";
 
 const STUDENT_KEYS = ["a60ceb3e-2b29-499a-8254-8bb4b7039772","fb04451a-2311-40c2-bf01-d027a007a1aa"];
 const COURSE_KEYS = ["7a4e543b-3d14-4c7c-9b22-9d29f6c8d664","494b1659-eab4-47f1-85d1-b9f9db41844d"];

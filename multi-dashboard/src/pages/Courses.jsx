@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import axios from "axios";
 
-const API_BASE = "http://localhost:8082/courses-api";
+const API_BASE = "http://10.0.0.79:8082/courses-api";
 const KEYS = [
   "7a4e543b-3d14-4c7c-9b22-9d29f6c8d664",
   "494b1659-eab4-47f1-85d1-b9f9db41844d",

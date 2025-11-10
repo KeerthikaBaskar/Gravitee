@@ -37,4 +37,4 @@ app.delete("/student/delete/:id", (req, res) => {
   res.json({ message: `Student ${id} deleted` });
 });
 
-app.listen(3001, () => console.log("🎓 Students API running on port 3001"));
+app.listen(3001, '0.0.0.0', () => console.log("🎓 Students API running on port 3001"));
