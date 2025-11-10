@@ -71,17 +71,40 @@ export default function Courses() {
     throw new Error("All keys failed");
   };
 
+  // const fetchCourses = async () => {
+  //   try {
+  //     setLoading(true);
+  //     const data = await callAPI("get", "/courses/list");
+  //     setCourses(data || []);
+  //   } catch (e) {
+  //     setError("Failed to load courses: " + e.message);
+  //   } finally {
+  //     setLoading(false);
+  //   }
+  // };
+
   const fetchCourses = async () => {
-    try {
-      setLoading(true);
-      const data = await callAPI("get", "/courses/list");
-      setCourses(data || []);
-    } catch (e) {
-      setError("Failed to load courses: " + e.message);
-    } finally {
-      setLoading(false);
+  try {
+    setLoading(true);
+    const data = await callAPI("get", "/courses/list");
+
+    // ✅ Normalize backend response to array
+    if (Array.isArray(data)) {
+      setCourses(data);
+    } else if (data && typeof data === "object") {
+      console.warn("Non-array response from backend:", data);
+      setCourses([]);
+    } else {
+      setCourses([]);
     }
-  };
+  } catch (e) {
+    setError("Failed to load courses: " + e.message);
+    setCourses([]); // fallback to empty array to prevent map crash
+  } finally {
+    setLoading(false);
+  }
+};
+
 
   const addCourse = async () => {
     setMessage("");
